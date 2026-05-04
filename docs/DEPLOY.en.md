@@ -413,6 +413,20 @@ DS2API_CHAT_HISTORY_PATH=/tmp/chat_history.json
 - `static/admin` directory is not in Git
 - Vercel / Docker automatically generate WebUI assets during build
 
+### 3.7 GitHub Scheduled Upstream Sync + Vercel Auto Deploy
+
+If you do not want to keep Docker running on your local machine, you can fork this repository to your own GitHub account and let GitHub Actions merge the latest commits from `CJackHwang/ds2api` once a day. As long as that merge is pushed back to your fork, Vercel will redeploy automatically from the Git push.
+
+Recommended flow:
+
+1. Fork this repository to your GitHub account
+2. Import your fork into Vercel
+3. Set the Vercel environment variables described above
+4. Keep `.github/workflows/sync-upstream.yml`
+5. Run the `Sync Upstream` workflow manually if you want an on-demand sync
+
+The sync script only works on a clean working tree and only merges upstream changes. It will not touch your `config.json`, `.env`, or local account data. If a conflict appears, the workflow stops instead of overwriting your changes.
+
 ---
 
 ## 4. Local Run from Source

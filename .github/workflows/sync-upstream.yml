@@ -1,0 +1,45 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    - cron: "15 2 * * *"
+  workflow_dispatch:
+    inputs:
+      upstream_branch:
+        description: Upstream branch to sync from
+        required: false
+        default: main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync from upstream
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync upstream branch
+        id: sync
+        env:
+          UPSTREAM_URL: https://github.com/CJackHwang/ds2api.git
+          UPSTREAM_BRANCH: ${{ github.event.inputs.upstream_branch }}
+          TARGET_BRANCH: ${{ github.ref_name }}
+        run: ./scripts/sync-upstream.sh
+
+      - name: Push merged commit
+        if: steps.sync.outputs.changed == 'true'
+        run: git push origin HEAD:${{ github.ref_name }}

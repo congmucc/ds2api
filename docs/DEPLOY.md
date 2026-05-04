@@ -423,6 +423,20 @@ DS2API_CHAT_HISTORY_PATH=/tmp/chat_history.json
 - `static/admin` 目录不在 Git 中
 - Vercel / Docker 构建阶段自动生成 WebUI 静态文件
 
+### 3.7 GitHub 自动同步上游 + Vercel 自动部署
+
+如果你不想在本机长期跑 Docker，可以把这个仓库 fork 到自己的 GitHub，然后让 GitHub Actions 每天把 `CJackHwang/ds2api` 的最新提交合并到你的 fork。只要合并成功，Vercel 会因为 Git push 自动重新部署。
+
+推荐流程：
+
+1. Fork 当前仓库到你的 GitHub
+2. 在 Vercel 导入你的 fork
+3. 先按上面的 Vercel 环境变量要求完成部署
+4. 保留 `.github/workflows/sync-upstream.yml`
+5. 如需手动同步，点 GitHub Actions 的 `Sync Upstream`
+
+同步脚本默认只处理干净工作区，并且只做 upstream 合并，不会改动你的 `config.json`、`.env` 或本地账号数据。遇到冲突时，工作流会停止，不会强行覆盖你的改动。
+
 ---
 
 ## 四、本地源码运行
