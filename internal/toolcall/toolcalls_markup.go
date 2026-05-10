@@ -9,9 +9,6 @@ import (
 
 var toolCallMarkupKVPattern = regexp.MustCompile(`(?is)<(?:[a-z0-9_:-]+:)?([a-z0-9_\-.]+)\b[^>]*>(.*?)</(?:[a-z0-9_:-]+:)?([a-z0-9_\-.]+)>`)
 
-// cdataPattern matches a standalone CDATA section.
-var cdataPattern = regexp.MustCompile(`(?is)^<!\[CDATA\[(.*?)]]>$`)
-
 func parseMarkupKVObject(text string) map[string]any {
 	matches := toolCallMarkupKVPattern.FindAllStringSubmatch(strings.TrimSpace(text), -1)
 	if len(matches) == 0 {
@@ -108,13 +105,30 @@ func extractRawTagValue(inner string) string {
 
 func extractStandaloneCDATA(inner string) (string, bool) {
 	trimmed := strings.TrimSpace(inner)
-	if cdataMatches := cdataPattern.FindStringSubmatch(trimmed); len(cdataMatches) >= 2 {
-		return cdataMatches[1], true
-	}
-	if strings.HasPrefix(strings.ToLower(trimmed), "<![cdata[") {
-		return trimmed[len("<![CDATA["):], true
+	if bodyStart, ok := matchToolCDATAOpenAt(trimmed, 0); ok {
+		end := findStandaloneCDATAEnd(trimmed, bodyStart)
+		if end < 0 {
+			return trimmed[bodyStart:], true
+		}
+		return trimmed[bodyStart:end], true
 	}
 	return "", false
+}
+
+func findStandaloneCDATAEnd(text string, from int) int {
+	end := -1
+	for searchFrom := from; searchFrom < len(text); {
+		next := indexToolCDATAClose(text, searchFrom)
+		if next < 0 {
+			break
+		}
+		closeEnd := next + toolCDATACloseLenAt(text, next)
+		if strings.TrimSpace(text[closeEnd:]) == "" {
+			end = next
+		}
+		searchFrom = closeEnd
+	}
+	return end
 }
 
 func parseJSONLiteralValue(raw string) (any, bool) {
@@ -145,7 +159,6 @@ func SanitizeLooseCDATA(text string) string {
 		return ""
 	}
 
-	lower := strings.ToLower(text)
 	const openMarker = "<![cdata["
 	const closeMarker = "]]>"
 
@@ -154,17 +167,16 @@ func SanitizeLooseCDATA(text string) string {
 	changed := false
 	pos := 0
 	for pos < len(text) {
-		startRel := strings.Index(lower[pos:], openMarker)
-		if startRel < 0 {
+		start := indexASCIIFold(text, pos, openMarker)
+		if start < 0 {
 			b.WriteString(text[pos:])
 			break
 		}
-		start := pos + startRel
 		contentStart := start + len(openMarker)
 		b.WriteString(text[pos:start])
 
-		if endRel := strings.Index(lower[contentStart:], closeMarker); endRel >= 0 {
-			end := contentStart + endRel + len(closeMarker)
+		if endRel := indexASCIIFold(text, contentStart, closeMarker); endRel >= 0 {
+			end := endRel + len(closeMarker)
 			b.WriteString(text[start:end])
 			pos = end
 			continue
